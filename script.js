@@ -1,123 +1,130 @@
-// Hype Street Point System Logic
-const SCORING = {
-    MOVIE: 1.0, GAME: 1.0, TV_SHOW: 1.0,
-    ANIMATED: 0.75, COMIC: 0.5, NOVEL: 0.5, MOBILE: 0.5,
-    OTHER: 0.25, CONTROVERSY: -0.5, INACTIVITY: -2.0
+const START_YEAR = 1980;
+const CURRENT_DATE = new Date('2026-03-04');
+
+const POINTS = {
+    movie: 1.0, game: 1.0, tv: 1.0,
+    animated_movie: 0.75, animated_tv: 0.75,
+    comic: 0.5, novel: 0.5, mobile: 0.5,
+    other: 0.25
 };
 
-// Mock Database for Search Prediction
-const ipDatabase = ["Spider-Man", "Marvel Cinematic Universe", "Star Wars", "Mickey Mouse & Friends", "The Last of Us", "Batman", "Harry Potter"];
-
-// Chart Data Structure
-let chartData = {
-    labels: [], // Dates from 1980
-    datasets: [{
-        label: 'Hype Index',
-        data: [],
-        borderColor: '#00ff88',
-        tension: 0.1,
-        pointRadius: 4,
-        pointHoverRadius: 8,
-        fill: false,
-        segment: {
-            borderColor: ctx => (ctx.p0.parsed.y <= ctx.p1.parsed.y ? '#00ff88' : '#ff4444')
-        }
-    }]
-};
-
-// Simulation of History Data from 1980 to Today
-function generateHistoricalData() {
-    let currentScore = 10.000;
-    const startDate = new Date(1980, 0, 1);
-    const today = new Date();
-    
-    // Generating monthly data points
-    for (let d = startDate; d <= today; d.setMonth(d.getMonth() + 1)) {
-        chartData.labels.push(new Date(d).toLocaleDateString());
-        
-        // Random "News Events" logic based on your rules
-        let change = (Math.random() - 0.45) * 5; // Simplified drift
-        currentScore = Math.max(-100, Math.min(100, currentScore + change));
-        
-        chartData.datasets[0].data.push({
-            x: new Date(d).toLocaleDateString(),
-            y: currentScore,
-            news: currentScore > 15 ? "• Official Movie Release (+1.0)\n• High Rotten Tomatoes Score (+1.0)" : "• No Content Released (-2.0)"
-        });
+const IPS = {
+    "Spider-Man": {
+        events: [
+            { date: '2023-10-20', type: 'game', status: 'released', reviews: 'positive', desc: "Spider-Man 2 PS5 Launch" },
+            { date: '2025-07-31', type: 'movie', status: 'announced', desc: "Brand New Day Announcement" },
+            { date: '2026-01-15', type: 'other', status: 'rerelease', desc: "Retro Action Figure Rerelease (0.25/4)" }
+        ]
+    },
+    "Mickey Mouse": {
+        events: [
+            { date: '2024-01-01', type: 'other', status: 'released', desc: "Steamboat Willie Public Domain" },
+            { date: '2026-03-29', type: 'other', status: 'announced', desc: "Adventure World New Look" }
+        ]
     }
+};
+
+let chart;
+
+function processHype(ipName) {
+    const data = IPS[ipName];
+    let score = 0.000;
+    let history = [{ x: new Date('1980-01-01'), y: 0.000, desc: "Market Open" }];
+    let activityMap = new Set();
+
+    data.events.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(ev => {
+        let base = POINTS[ev.type] || POINTS.other;
+        let eventDate = new Date(ev.date);
+        activityMap.add(eventDate.getFullYear());
+
+        // Logic Rules
+        if (ev.status === 'announced') base /= 2;
+        if (ev.status === 'rerelease') base /= 4; // If "other" + "rerelease", it becomes 0.0625
+        if (ev.status === 'cancelled') base *= -1;
+
+        if (ev.profit === true) base += (POINTS[ev.type] || 0.25);
+        if (ev.profit === false) base -= (POINTS[ev.type] || 0.25);
+        if (ev.reviews === 'positive') base += (POINTS[ev.type] || 0.25);
+        if (ev.reviews === 'negative') base -= (POINTS[ev.type] || 0.25);
+        if (ev.controversy) base -= 0.5;
+
+        score = Math.max(-100, Math.min(100, score + base));
+        history.push({ x: eventDate, y: score, desc: ev.desc });
+    });
+
+    // Inactivity Penalty
+    for (let y = START_YEAR; y <= CURRENT_DATE.getFullYear(); y++) {
+        if (!activityMap.has(y)) {
+            score -= 2;
+            history.push({ x: new Date(`${y}-12-31`), y: score, desc: "Inactivity Penalty (-2.000)" });
+        }
+    }
+
+    return history.sort((a,b) => a.x - b.x);
 }
 
-// Initialize Chart
-const ctx = document.getElementById('hypeChart').getContext('2d');
-let hypeChart;
+function initChart(name) {
+    const history = processHype(name);
+    const last = history[history.length - 1];
+    const isUp = last.y >= (history[history.length-2]?.y || 0);
 
-function initChart() {
-    generateHistoricalData();
-    hypeChart = new Chart(ctx, {
+    const ctx = document.getElementById('hypeChart').getContext('2d');
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
         type: 'line',
-        data: chartData,
+        data: {
+            datasets: [{
+                data: history,
+                borderColor: isUp ? '#00ffa3' : '#ff3c5f',
+                borderWidth: 2,
+                pointRadius: 3,
+                segment: { borderColor: c => c.p0.parsed.y <= c.p1.parsed.y ? '#00ffa3' : '#ff3c5f' }
+            }]
+        },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             scales: {
-                y: { min: -100, max: 100, grid: { color: '#1f2226' } },
-                x: { grid: { display: false } }
+                x: { type: 'time', time: { unit: 'year' }, grid: { color: '#242731' } },
+                y: { min: -100, max: 100, grid: { color: '#242731' }, ticks: { callback: v => v.toFixed(3) } }
             },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.raw.news || "Steady State";
-                        }
-                    }
-                }
-            }
+            plugins: { tooltip: { callbacks: { label: c => `${c.raw.y.toFixed(3)}: ${c.raw.desc}` } } }
         }
     });
-    updateRealtimeDisplay();
+    updateUI(name, last.y, isUp);
 }
 
-// Update the 0.000 display in the corner
-function updateRealtimeDisplay() {
-    const lastVal = chartData.datasets[0].data[chartData.datasets[0].data.length - 1].y;
-    const display = document.getElementById('graph-value-display');
-    const livePrice = document.getElementById('live-price');
-    
-    const formatted = lastVal.toFixed(3);
-    display.innerText = formatted;
-    livePrice.innerText = formatted;
-    
-    // Set colors
-    const colorClass = lastVal >= 0 ? 'up' : 'down';
-    display.className = colorClass;
-    livePrice.className = `price-highlight ${colorClass}`;
+function updateUI(name, score, isUp) {
+    const color = isUp ? 'var(--bull)' : 'var(--bear)';
+    document.getElementById('active-ip').innerText = name.toUpperCase();
+    document.getElementById('live-price').innerText = score.toFixed(3);
+    document.getElementById('live-price').style.color = color;
+    document.getElementById('corner-price').innerText = score.toFixed(3);
+    document.getElementById('corner-price').style.color = color;
+    document.getElementById('trend-icon').innerHTML = isUp ? '▲' : '▼';
+    document.getElementById('trend-icon').style.color = color;
 }
 
-// Search Logic
-const searchIcon = document.getElementById('search-icon');
-const overlay = document.getElementById('search-overlay');
-const closeSearch = document.getElementById('close-search');
-const searchInput = document.getElementById('ip-search-input');
-const predictions = document.getElementById('predictions');
-
-searchIcon.onclick = () => overlay.style.display = 'flex';
-closeSearch.onclick = () => overlay.style.display = 'none';
-
-searchInput.oninput = (e) => {
-    const val = e.target.value.toLowerCase();
-    predictions.innerHTML = '';
-    if(val.length > 0) {
-        const matches = ipDatabase.filter(ip => ip.toLowerCase().includes(val));
-        matches.forEach(match => {
-            const div = document.createElement('div');
-            div.innerText = match;
-            div.onclick = () => {
-                document.getElementById('current-ip-title').innerText = match.toUpperCase();
-                overlay.style.display = 'none';
-            };
-            predictions.appendChild(div);
-        });
-    }
+// Search and UI Triggers
+document.getElementById('open-search').onclick = () => {
+    document.getElementById('search-overlay').style.display = 'flex';
+    document.getElementById('ip-search-input').focus();
 };
 
-window.onload = initChart;
+document.getElementById('ip-search-input').oninput = (e) => {
+    const val = e.target.value.toLowerCase();
+    const preds = document.getElementById('predictions');
+    preds.innerHTML = '';
+    Object.keys(IPS).filter(k => k.toLowerCase().includes(val)).forEach(k => {
+        const item = document.createElement('div');
+        item.className = 'prediction-item';
+        item.innerText = k;
+        item.onclick = () => {
+            initChart(k);
+            document.getElementById('search-overlay').style.display = 'none';
+        };
+        preds.appendChild(item);
+    });
+};
+
+window.onload = () => initChart("Spider-Man");
