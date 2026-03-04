@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hype Street | IP Market Terminal</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div id="search-overlay" class="search-overlay">
+        <div class="search-container">
+            <input type="text" id="ip-search-input" placeholder="Search Franchise (Spider-Man, Star Wars, etc...)" autocomplete="off">
+            <div id="predictions" class="predictions-box"></div>
+        </div>
+        <button id="close-search">×</button>
+    </div>
+
+    <header class="terminal-header">
+        <div class="left-tools">
+            <i class="fas fa-search search-trigger" id="search-icon"></i>
+            <span class="logo">HYPE STREET</span>
+        </div>
+        <div class="market-info">
+            <span class="ticker-label">IP:</span>
+            <span id="current-ip-title">SPIDER-MAN (MARVEL)</span>
+            <span id="live-price" class="price-highlight">0.000</span>
+        </div>
+    </header>
+
+    <main class="chart-area">
+        <div class="graph-top-right">
+            <span id="graph-value-display">0.000</span>
+        </div>
+        <canvas id="hypeChart"></canvas>
+    </main>
+
+    <footer class="time-controls">
+        <button onclick="changeTimeframe('all')">ALL</button>
+        <button onclick="changeTimeframe('decade')">DECADE</button>
+        <button onclick="changeTimeframe('year')">YEAR</button>
+        <button onclick="changeTimeframe('month')">MONTH</button>
+        <button onclick="changeTimeframe('day')">DAY</button>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
